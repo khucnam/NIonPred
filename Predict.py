@@ -2,16 +2,33 @@ import os
 import numpy as np
 import pandas as pd
 import pickle
-from sklearn.externals import joblib
+#from sklearn.externals import joblib
 import sys
+import joblib
 
-
-def fastaToNgram(fastaSequenceFile, ngram):
-    f=open(fastaSequenceFile,"r")
+def aminoAcidEmbedding(embeddingFile):
+    f=open(embeddingFile,"r")
     lines=f.readlines()
     f.close()
-    fasttext_input_sequence_dic={}
-#    threshold=float(lines[0][:-1])
+    
+    #AA_Emb is a dictionary of (key, value) where key is the amino acid and value is the corresponding Pfam amino acid embedding
+    AA_Emb={}
+    for line in lines[1:]:
+        temp=line[:-1].split()
+        AA_Emb[temp[0]]=temp[1:]
+    
+    return AA_Emb
+        
+
+def fastaToFeature(fastaFile):
+    f=open(fastaFile,"r")
+    lines=f.readlines()
+    f.close()
+    
+    
+    #input_sequence is a dictionary of (key, value) where key is the proteinID and value is the amino acid sequence 
+    input_sequences={}
+    
     fastaSequence=""
     temp=lines[0]
     temp=temp.replace(">sp|","").replace(">","")
@@ -23,86 +40,45 @@ def fastaToNgram(fastaSequenceFile, ngram):
             else:
                 fastaSequence+=line
         else:
-            fasttext_input_sequence_dic[proteinID]=fastaSequence
+            input_sequences[proteinID]=fastaSequence
             temp=line
             temp=temp.replace(">sp|","").replace(">","")
             proteinID=temp[:temp.find("|")]
             fastaSequence=""
-    fasttext_input_sequence_dic[proteinID]=fastaSequence
-    #cho nay ko gan ngram=3 vi voi bai tnf, feature tot nhat la combine ngram2 va ngram3
-    for  key in fasttext_input_sequence_dic.keys():
-        fastaSequence=fasttext_input_sequence_dic.get(key)
-        fasttext_input_sequence=""
-        i=0
-        while i<len(fastaSequence)-ngram+1:
-            for j in range(ngram):
-                fasttext_input_sequence+=fastaSequence[i+j]
-            fasttext_input_sequence+=" "
-            i=i+1
-#        print(fasttext_input_sequence)
-        fasttext_input_sequence_dic[key]=fasttext_input_sequence[:-1]
-        
-    return fasttext_input_sequence_dic
-
-def create_word_vector(embedding_file):
-    word_int={}
-    f=open(embedding_file,"r")
-    lines=f.readlines()
-    for line in lines[1:]:
-        word_int[line.split()[0]]=[float(line.split()[1])] #dim=1
-    del word_int["</s>"]
-    return word_int
-
-def init(word_int):
-    input_word_int={}
-    for key in word_int.keys():
-        input_word_int[key]=[0,0]#dim=2
-    return input_word_int
-
-def count_word(aList, word):
-    count=0
-    for l in aList:
-        if l==word:
-            count+=1
-    return count
-
-def create_svm_input_from_dict(embedding_file, fasttext_input_sequence_dic, svm_input_file):
-    word_int = create_word_vector(embedding_file)
-    input_word_int = init(word_int)
-    f=open(svm_input_file,"w") #w: allow overwrite
-    for fasttext_input_sequence in fasttext_input_sequence_dic.values():
-        for ngram in fasttext_input_sequence.split():
-            count=count_word(fasttext_input_sequence[:-1].split(),ngram)
-            if word_int.get(ngram)!=None:
-                input_word_int[ngram]=[count*word_int.get(ngram)[0]]#dim1
-        for key in input_word_int.keys():
-            f.write(str('{:.3f}'.format(input_word_int.get(key)[0]))+", ")#dim 1, lay 3 chinh xac den 3 chu so
-        f.write("\n")    
-    f.close()
+    input_sequences[proteinID]=fastaSequence
     
-
-def create_svm_input_from_one_seq(embedding_file1, embedding_file2, fasttext_input_sequence1, fasttext_input_sequence2, svm_input_file):
-    word_int1 = create_word_vector(embedding_file1)
-    input_word_int1 = init(word_int1)
-    f=open(svm_input_file,"w") #w: allow overwrite
-    for ngram in fasttext_input_sequence1.split():
-        count=count_word(fasttext_input_sequence1[:-1].split(),ngram)
-        if word_int1.get(ngram)!=None:
-            input_word_int1[ngram]=[count*word_int1.get(ngram)[0]]#dim1
-    for key in input_word_int1.keys():
-        f.write(str('{:.3f}'.format(input_word_int1.get(key)[0]))+", ")#dim 1, lay 3 chinh xac den 3 chu so
+    #segment each amino acid sequence into segment of 15
+    #input_segments is a dictionary of (key, value) where key is the proteinID and value is the segments of 15 AA from the amino acid sequences 
+    input_segments={}
+    for proteinID in input_sequences.keys():
+        sequence=input_sequences.get(proteinID)
+        sequence="OOOOOOO"+sequence #padding
+        sequence=sequence+"OOOOOOO" #padding
+            
+        segments=[]
+        for i in range(0,len(sequence)-14):
+            segments.append(sequence[i:i+15])
+        input_segments[proteinID]=segments
         
-    word_int2 = create_word_vector(embedding_file2)
-    input_word_int2 = init(word_int2)
-    for ngram in fasttext_input_sequence2.split():
-        count=count_word(fasttext_input_sequence2[:-1].split(),ngram)
-        if word_int2.get(ngram)!=None:
-            input_word_int2[ngram]=[count*word_int2.get(ngram)[0]]#dim1
-    for key in input_word_int2.keys():
-        f.write(str('{:.3f}'.format(input_word_int2.get(key)[0]))+", ")#dim 1, lay 3 chinh xac den 3 chu so
+    #create feature vectors
+    #input_feature is a dictionary of (key, value) where key is the proteinID and value is the embedding features created from Pfam_emb of segments of 15 amino acids
+    aaEmb=aminoAcidEmbedding("Embedding vectors/Pfam.vec")
     
-    f.write("\n")    
-    f.close()
+    if not(os.path.exists("tmp")):
+        os.mkdir("tmp")
+    for proteinID in input_segments.keys():
+        f=open("tmp/"+proteinID+".csv","w")
+        
+        segments=input_segments.get(proteinID)
+        for segment in segments:
+            for amino_acid in segment:
+                emb_values=aaEmb.get(amino_acid)
+                for emb_value in emb_values:
+                    f.write(str(emb_value)+",")
+            f.write("\n")
+        f.close()
+    return input_sequences
+
 
 def labelToOneHot(label):# 0--> [1 0], 1 --> [0 1]
     label = label.reshape(len(label), 1)
@@ -110,55 +86,60 @@ def labelToOneHot(label):# 0--> [1 0], 1 --> [0 1]
     label[:,0] = label[:,0] == 0;
     return label
 
-
-
-	
-def run(svm_input_file, model_file):
-    dataset = pd.read_csv(svm_input_file, header=None)
-    X_test = dataset.iloc[:, 0:-1].values
+def predict(inputFile, outputFile="Result.txt"):
+    input_sequences=fastaToFeature(inputFile)
+    
+    #loading the model
     try:
-        classifier=joblib.load(model_file)
+        classifier=joblib.load("Model/PfamVecSize8ModelWithRF.sav")
     except (IOError, pickle.UnpicklingError, AssertionError):
         print(pickle.UnpicklingError)
         return True
-
-    y_pred = classifier.predict_proba(X_test)
-    return y_pred[0][1] #all the second values
+    
+    threshold=0.365 #predefined threshold
+    #loop through each protein feature file and write results into output file
+    f=open(outputFile,"w")
+    f.write("No. of sequence = "+str(len(os.listdir("tmp")))+"\n")
+    f.write("Predefined threshold: "+str(threshold)+"\n")
+    f.write("------------------------------------------------\n")
+    f.write("Position     Residue	  Score	     Prediction\n")
+    f.write("------------------------------------------------\n")
+    
+    
+    
+    
+    for protein_feature_file in os.listdir("tmp"):
+        proteinID=protein_feature_file[:-4]
+        sequence=input_sequences.get(proteinID)
+        length=len(sequence)
+        f.write(">"+proteinID+"    Length = "+str(length)+"\n\n")
+        f.write(sequence+"\n\n")
+        
+        dataset = pd.read_csv("tmp/"+protein_feature_file, header=None)
+        X_test = dataset.iloc[:, 0:-1].values
+        y_pred = classifier.predict_proba(X_test)
+        for i in range(len(y_pred)-2):
+            if sequence[i]=="N":
+                if y_pred[i][1]>=threshold:
+                    f.write("{:5.0f}".format(i+1)+"    "+sequence[i:i+3]+"    "+"{:10.4f}".format(y_pred[i][1])+"    Potential glycosylated\n")
+                else:
+                    f.write("{:5.0f}".format(i+1)+"    "+sequence[i:i+3]+"    "+"{:10.4f}".format(y_pred[i][1])+"    Non-glycosylated\n")
+        
+        f.write("***********************************\n\n")
 
 	
-if not(os.path.exists("tmp")):
-	os.mkdir("tmp")
+
 
 inputFile= sys.argv[1]
-outputFile="Result.csv" #w: allow overwrite
-print("input file ",inputFile)
+outputFile="Result.txt" 
+predict(inputFile, outputFile="Result.txt")
 
-#ngram2
-fasttext_input_sequence_dic=fastaToNgram(inputFile,2)
-f=open(outputFile,"w")
-f.write("ProteinID,Probability\n")
-answerDict={}
-
-
-for proteinID in fasttext_input_sequence_dic1.keys():
-    f.write(proteinID+",")
-    fasttext_input_sequence1=fasttext_input_sequence_dic1.get(proteinID)
-    fasttext_input_sequence2=fasttext_input_sequence_dic2.get(proteinID)
-    for cla in ["NIon"]:
-            svm_input_file="tmp\\"+cla+"_"+proteinID+".csv"
-            embedding_file="Pfam_EMB embedding vectors\\Pfam_EMB embedding vectors\\NIon.dfSubword.embedding.train.vec"
-            create_svm_input_from_one_seq(embedding_file, fasttext_input_sequence, svm_input_file)
-            model_file="Model\\Model\\"+cla+".pickle_model.pkl"
-            answerForOneClass = run(svm_input_file,model_file)
-            f.write(str("{:.3f}".format(answerForOneClass))+",")
-    f.write("\n")
-f.close()
 
 #delete temporary files    
 for filename in os.listdir("tmp"):
     os.remove("tmp\\"+filename)
-    
 
-print("Thank you for using TNFPred!!! Please check the prediction results in Result.csv file")
+
+print("Thank you for using NIonPred!!! Please check the prediction results in Result.txt file")
 
 
