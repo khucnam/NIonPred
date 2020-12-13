@@ -1,5 +1,5 @@
-This is the public site for the paper under submission named: "Incorporating transfer learning technique with amino acid embeddings to efficiently predict 
-N_linked glycosylation sites in ion channels"
+This is the public site for the paper under submission named: "Using k-mer embedding as effective feature representation for building 
+a cross-species prediction model to identify DNA N6-Methyladenine sites in plant genomes"
 
 LIBRARY REQUIREMENTS
 	We will need to install some basic packages to run the programs as followed:
@@ -12,7 +12,7 @@ LIBRARY REQUIREMENTS
 
 INSTRUCTION:
 
-1. Using git bash to clone all the required files in "YOUR FOLDER" folder git clone https://github.com/khucnam/NIonPred
+1. Using git bash to clone all the required files in "YOUR FOLDER" folder git clone https://github.com/khucnam/Meta-i6mA
 
 2. python Predict.py your_fasta_file.fasta ("your_fasta_file.fasta" file contains the sequences you want to classify. Please see the "sample.fasta" as an example.)
 
