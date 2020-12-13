@@ -16,5 +16,4 @@ INSTRUCTION:
 
 2. python Predict.py your_fasta_file.fasta ("your_fasta_file.fasta" file contains the sequences you want to classify. Please see the "sample.fasta" as an example.)
 
-----> Running the Predict.py script will generate the Result.csv file. In Result.csv file, there are 2 columms: first one contains the protein ID, 
-the next column contaisn a probability that an amino acid is N_linked glycosylated.
+----> Running the Predict.py script will generate the Result.txt file.
