@@ -1,0 +1,19 @@
+INSTRUCTION FOR USING THE STANDALONE APPLICATION
+
+We have created an application named yang-ion-pred for predicting N_linked glycosylated sites in ion channel.
+In order to:
+
+1. Install the yang-ion-pred and the related packages: 
+		Open your Shell/Command line (on Windows) or terminal (on Linux/Mac) and execute the command:
+			pip install yang-ion-pred 
+		
+2. Download the package:
+		Go to https://pypi.org/project/yang-ion-pred/, and click in "Download files" in the Navigation menu
+
+2. Execute the prediction command with the following syntax:
+	
+		yang-ion-pred —input <path/to/fasta/file> —output <path/to/output/folder> 
+
+		+ <path/to/fasta/file>: path to fasta file contains the sequences you want to classify. Please see the "sample.fasta" as an example
+		+ <path/to/output/folder>: path to folder where your want to place the prediction result file
+
